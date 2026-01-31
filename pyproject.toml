@@ -1,0 +1,39 @@
+[build-system]
+requires = ["maturin>=1.0,<2.0"]
+build-backend = "maturin"
+
+[project]
+name = "rust_incdbscan"
+version = "0.1.0"
+description = "High-performance Rust implementation of IncrementalDBSCAN with Python bindings."
+readme = "README.md"
+license = {text = "BSD-3-Clause"}
+requires-python = ">=3.9"
+keywords = ["clustering", "incremental clustering", "dbscan", "machine learning"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: BSD License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Rust",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+dependencies = ["numpy>=1.20"]
+
+[project.optional-dependencies]
+dev = ["pytest>=7.0", "scikit-learn>=1.0"]
+
+[tool.maturin]
+features = ["extension-module"]
+python-source = "python"
+module-name = "rust_incdbscan._rust_incdbscan"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

@@ -1,0 +1,18 @@
+[package]
+name = "rust_incdbscan"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "rust_incdbscan"
+crate-type = ["cdylib", "rlib"]
+
+[features]
+default = []
+extension-module = ["dep:pyo3", "dep:numpy", "pyo3/extension-module"]
+
+[dependencies]
+pyo3 = { version = "0.23", optional = true }
+numpy = { version = "0.23", optional = true }
+petgraph = "0.7"
+xxhash-rust = { version = "0.8", features = ["xxh64"] }
