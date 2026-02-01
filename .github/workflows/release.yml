@@ -23,7 +23,7 @@ jobs:
         uses: PyO3/maturin-action@v1
         with:
           target: ${{ matrix.target }}
-          args: --release --out dist --find-interpreter
+          args: --release --out dist -i 3.9 3.10 3.11 3.12 3.13
           manylinux: auto
           before-script-linux: |
             # Cross-compilation containers lack Python; install it
@@ -53,7 +53,7 @@ jobs:
         uses: PyO3/maturin-action@v1
         with:
           target: ${{ matrix.target }}-apple-darwin
-          args: --release --out dist --find-interpreter
+          args: --release --out dist -i 3.9 3.10 3.11 3.12 3.13
       - uses: actions/upload-artifact@v4
         with:
           name: wheels-macos-${{ matrix.target }}
@@ -73,7 +73,7 @@ jobs:
       - name: Build wheels
         uses: PyO3/maturin-action@v1
         with:
-          args: --release --out dist --find-interpreter
+          args: --release --out dist -i 3.9 3.10 3.11 3.12 3.13
       - uses: actions/upload-artifact@v4
         with:
           name: wheels-windows-${{ matrix.target }}
