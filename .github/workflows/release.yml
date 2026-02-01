@@ -40,7 +40,7 @@ jobs:
     strategy:
       matrix:
         include:
-          - runner: macos-13
+          - runner: macos-14
             target: x86_64
           - runner: macos-14
             target: aarch64
@@ -63,20 +63,20 @@ jobs:
     runs-on: windows-latest
     strategy:
       matrix:
-        target: [x64]
+        python-version: ["3.9", "3.10", "3.11", "3.12", "3.13"]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
-          architecture: ${{ matrix.target }}
+          python-version: ${{ matrix.python-version }}
+          architecture: x64
       - name: Build wheels
         uses: PyO3/maturin-action@v1
         with:
-          args: --release --out dist -i 3.9 3.10 3.11 3.12 3.13
+          args: --release --out dist -i python
       - uses: actions/upload-artifact@v4
         with:
-          name: wheels-windows-${{ matrix.target }}
+          name: wheels-windows-${{ matrix.python-version }}
           path: dist
 
   sdist:
