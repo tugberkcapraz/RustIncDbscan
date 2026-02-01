@@ -1,4 +1,4 @@
-"""Tests for rust_incdbscan.
+"""Tests for incdbscan_rs.
 
 Covers: noise, cluster creation, absorption, merge, splits, duplicates,
 multi-dimensional data, deletion, and cross-validation against sklearn.
@@ -7,7 +7,7 @@ multi-dimensional data, deletion, and cross-validation against sklearn.
 import numpy as np
 import pytest
 
-from rust_incdbscan import RustIncrementalDBSCAN
+from incdbscan_rs import IncrementalDBSCAN
 
 EPS = 1.5
 NOISE = -1
@@ -53,28 +53,28 @@ def are_lists_isomorphic(list_1, list_2):
 
 class TestConstruction:
     def test_default_params(self):
-        db = RustIncrementalDBSCAN()
+        db = IncrementalDBSCAN()
         assert db is not None
 
     def test_custom_params(self):
-        db = RustIncrementalDBSCAN(eps=2.0, min_pts=10, p=1.0)
+        db = IncrementalDBSCAN(eps=2.0, min_pts=10, p=1.0)
         assert db is not None
 
     def test_invalid_eps(self):
         with pytest.raises(ValueError):
-            RustIncrementalDBSCAN(eps=-1.0)
+            IncrementalDBSCAN(eps=-1.0)
 
     def test_invalid_eps_zero(self):
         with pytest.raises(ValueError):
-            RustIncrementalDBSCAN(eps=0.0)
+            IncrementalDBSCAN(eps=0.0)
 
     def test_invalid_min_pts(self):
         with pytest.raises((ValueError, OverflowError)):
-            RustIncrementalDBSCAN(min_pts=0)
+            IncrementalDBSCAN(min_pts=0)
 
     def test_invalid_p(self):
         with pytest.raises(ValueError):
-            RustIncrementalDBSCAN(p=0.5)
+            IncrementalDBSCAN(p=0.5)
 
 
 # ---------------------------------------------------------------------------
@@ -83,25 +83,25 @@ class TestConstruction:
 
 class TestNoiseAndCreation:
     def test_single_point_is_noise(self):
-        db = RustIncrementalDBSCAN(eps=EPS, min_pts=3)
+        db = IncrementalDBSCAN(eps=EPS, min_pts=3)
         p = np.array([[0.0, 0.0]])
         db.insert(p)
         assert_all_noise(db, p)
 
     def test_two_points_are_noise(self):
-        db = RustIncrementalDBSCAN(eps=EPS, min_pts=3)
+        db = IncrementalDBSCAN(eps=EPS, min_pts=3)
         pts = np.array([[0.0, 0.0], [1.0, 0.0]])
         db.insert(pts)
         assert_all_noise(db, pts)
 
     def test_three_close_points_form_cluster(self):
-        db = RustIncrementalDBSCAN(eps=EPS, min_pts=3)
+        db = IncrementalDBSCAN(eps=EPS, min_pts=3)
         pts = np.array([[0.0, 0.0], [1.0, 0.0], [0.5, 0.5]])
         db.insert(pts)
         assert_all_same_cluster(db, pts)
 
     def test_far_point_stays_noise(self):
-        db = RustIncrementalDBSCAN(eps=EPS, min_pts=3)
+        db = IncrementalDBSCAN(eps=EPS, min_pts=3)
         cluster = np.array([[0.0, 0.0], [1.0, 0.0], [0.5, 0.5]])
         far = np.array([[10.0, 10.0]])
         db.insert(cluster)
@@ -116,7 +116,7 @@ class TestNoiseAndCreation:
 
 class TestAbsorption:
     def test_noise_absorbed_into_cluster(self):
-        db = RustIncrementalDBSCAN(eps=EPS, min_pts=3)
+        db = IncrementalDBSCAN(eps=EPS, min_pts=3)
         pts = np.array([[0.0, 0.0], [1.0, 0.0]])
         db.insert(pts)
         assert_all_noise(db, pts)
@@ -126,7 +126,7 @@ class TestAbsorption:
         assert_all_same_cluster(db, np.vstack([pts, trigger]))
 
     def test_border_point_absorbed(self):
-        db = RustIncrementalDBSCAN(eps=EPS, min_pts=3)
+        db = IncrementalDBSCAN(eps=EPS, min_pts=3)
         core = np.array([[0.0, 0.0], [0.5, 0.0], [0.0, 0.5]])
         db.insert(core)
 
@@ -144,7 +144,7 @@ class TestAbsorption:
 
 class TestTwoClusters:
     def test_two_separate_clusters(self):
-        db = RustIncrementalDBSCAN(eps=EPS, min_pts=3)
+        db = IncrementalDBSCAN(eps=EPS, min_pts=3)
         c1 = np.array([[0.0, 0.0], [1.0, 0.0], [0.5, 0.5]])
         c2 = np.array([[10.0, 10.0], [11.0, 10.0], [10.5, 10.5]])
         db.insert(c1)
@@ -163,7 +163,7 @@ class TestTwoClusters:
 
 class TestMerge:
     def test_bridge_merges_two_clusters(self):
-        db = RustIncrementalDBSCAN(eps=EPS, min_pts=3)
+        db = IncrementalDBSCAN(eps=EPS, min_pts=3)
         left = np.array([[-EPS, 0], [-EPS * 2, 0], [-EPS * 3, 0]])
         right = np.array([[EPS, 0], [EPS * 2, 0], [EPS * 3, 0]])
         db.insert(left)
@@ -185,7 +185,7 @@ class TestMerge:
 
 class TestDuplicates:
     def test_three_identical_points_form_cluster(self):
-        db = RustIncrementalDBSCAN(eps=EPS, min_pts=3)
+        db = IncrementalDBSCAN(eps=EPS, min_pts=3)
         p = np.array([[0.0, 0.0]])
         db.insert(p)
         db.insert(p)
@@ -193,7 +193,7 @@ class TestDuplicates:
         assert labels_of(db, p)[0] == 0
 
     def test_duplicate_increments_neighbor_count(self):
-        db = RustIncrementalDBSCAN(eps=EPS, min_pts=4)
+        db = IncrementalDBSCAN(eps=EPS, min_pts=4)
         pts = np.array([[0.0, 0.0], [1.0, 0.0], [0.5, 0.5]])
         db.insert(pts)
         assert_all_noise(db, pts)
@@ -210,30 +210,30 @@ class TestDuplicates:
 
 class TestDeletion:
     def test_delete_existing_returns_true(self):
-        db = RustIncrementalDBSCAN(eps=EPS, min_pts=3)
+        db = IncrementalDBSCAN(eps=EPS, min_pts=3)
         p = np.array([[0.0, 0.0]])
         db.insert(p)
         result = db.delete(p)
         assert result == [True]
 
     def test_delete_nonexistent_returns_false(self):
-        db = RustIncrementalDBSCAN(eps=EPS, min_pts=3)
+        db = IncrementalDBSCAN(eps=EPS, min_pts=3)
         result = db.delete(np.array([[99.0, 99.0]]))
         assert result == [False]
 
     def test_deleted_point_becomes_nan(self):
-        db = RustIncrementalDBSCAN(eps=EPS, min_pts=3)
+        db = IncrementalDBSCAN(eps=EPS, min_pts=3)
         p = np.array([[0.0, 0.0]])
         db.insert(p)
         db.delete(p)
         assert_all_nan(db, p)
 
     def test_unknown_point_is_nan(self):
-        db = RustIncrementalDBSCAN(eps=EPS, min_pts=3)
+        db = IncrementalDBSCAN(eps=EPS, min_pts=3)
         assert_all_nan(db, np.array([[42.0, 42.0]]))
 
     def test_delete_duplicate_decrements(self):
-        db = RustIncrementalDBSCAN(eps=EPS, min_pts=3)
+        db = IncrementalDBSCAN(eps=EPS, min_pts=3)
         p = np.array([[0.0, 0.0]])
         db.insert(p)
         db.insert(p)
@@ -256,7 +256,7 @@ class TestDeletion:
 
 class TestSplit:
     def test_two_way_split(self):
-        db = RustIncrementalDBSCAN(eps=EPS, min_pts=3)
+        db = IncrementalDBSCAN(eps=EPS, min_pts=3)
         left = np.array([[-EPS, 0], [-EPS * 2, 0], [-EPS * 3, 0]])
         right = np.array([[EPS, 0], [EPS * 2, 0], [EPS * 3, 0]])
         bridge = np.array([[0.0, 0.0]])
@@ -278,7 +278,7 @@ class TestSplit:
         assert left_labs != right_labs, "Left and right should be different clusters"
 
     def test_three_way_split(self):
-        db = RustIncrementalDBSCAN(eps=EPS, min_pts=3)
+        db = IncrementalDBSCAN(eps=EPS, min_pts=3)
         left = np.array([[-EPS, 0], [-EPS * 2, 0], [-EPS * 3, 0]])
         top = np.array([[0, EPS], [0, EPS * 2], [0, EPS * 3]])
         bottom = np.array([[0, -EPS], [0, -EPS * 2], [0, -EPS * 3]])
@@ -310,7 +310,7 @@ class TestSplit:
 
 class TestReinsert:
     def test_delete_then_reinsert(self):
-        db = RustIncrementalDBSCAN(eps=EPS, min_pts=3)
+        db = IncrementalDBSCAN(eps=EPS, min_pts=3)
         pts = np.array([[0.0, 0.0], [1.0, 0.0], [0.5, 0.5]])
         db.insert(pts)
         assert_all_same_cluster(db, pts)
@@ -328,7 +328,7 @@ class TestMultiDimensional:
     @pytest.mark.parametrize("n_dims", [1, 2, 3, 10, 50])
     def test_various_dimensions(self, n_dims):
         rng = np.random.RandomState(42)
-        db = RustIncrementalDBSCAN(eps=3.0, min_pts=3)
+        db = IncrementalDBSCAN(eps=3.0, min_pts=3)
         pts = rng.randn(20, n_dims) * 0.5
         db.insert(pts)
         labs = labels_of(db, pts)
@@ -341,14 +341,14 @@ class TestMultiDimensional:
 
 class TestDistanceMetrics:
     def test_manhattan_distance(self):
-        db = RustIncrementalDBSCAN(eps=2.0, min_pts=3, p=1.0)
+        db = IncrementalDBSCAN(eps=2.0, min_pts=3, p=1.0)
         pts = np.array([[0.0, 0.0], [1.0, 0.0], [0.0, 1.0]])
         db.insert(pts)
         labs = labels_of(db, pts)
         assert np.all(labs == labs[0]) and labs[0] >= 0
 
     def test_chebyshev_distance(self):
-        db = RustIncrementalDBSCAN(eps=1.5, min_pts=3, p=float("inf"))
+        db = IncrementalDBSCAN(eps=1.5, min_pts=3, p=float("inf"))
         pts = np.array([[0.0, 0.0], [1.0, 1.0], [0.5, 0.5]])
         db.insert(pts)
         labs = labels_of(db, pts)
@@ -385,7 +385,7 @@ class TestSklearnCrossValidation:
             random_state=42,
         )
 
-        rust_db = RustIncrementalDBSCAN(eps=eps, min_pts=min_pts)
+        rust_db = IncrementalDBSCAN(eps=eps, min_pts=min_pts)
         rust_db.insert(X)
         rust_labels = [int(l) for l in rust_db.get_cluster_labels(X)]
 
@@ -404,7 +404,7 @@ class TestStress:
     def test_many_batches_no_crash(self):
         """Insert and delete in batches to verify no crash or corruption."""
         rng = np.random.RandomState(42)
-        db = RustIncrementalDBSCAN(eps=2.0, min_pts=5)
+        db = IncrementalDBSCAN(eps=2.0, min_pts=5)
 
         for _ in range(5):
             batch = rng.randn(200, 2) * 10

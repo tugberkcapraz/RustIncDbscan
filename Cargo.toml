@@ -1,10 +1,10 @@
 [package]
-name = "rust_incdbscan"
+name = "incdbscan_rs"
 version = "0.1.0"
 edition = "2021"
 
 [lib]
-name = "rust_incdbscan"
+name = "incdbscan_rs"
 crate-type = ["cdylib", "rlib"]
 
 [features]

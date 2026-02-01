@@ -94,7 +94,7 @@ jobs:
     needs: [linux, macos, windows, sdist]
     environment:
       name: pypi
-      url: https://pypi.org/p/rust-incdbscan
+      url: https://pypi.org/p/incdbscan-rs
     permissions:
       id-token: write
     steps:

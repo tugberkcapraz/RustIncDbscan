@@ -1,4 +1,4 @@
-# rust_incdbscan
+# incdbscan-rs
 
 A high-performance Rust implementation of **IncrementalDBSCAN** with Python bindings.
 
@@ -10,6 +10,10 @@ Based on: Ester et al. 1998. *Incremental Clustering for Mining in a Data Wareho
 
 ## Installation
 
+```bash
+pip install incdbscan-rs
+```
+
 ### From source (requires Rust toolchain)
 
 ```bash
@@ -17,26 +21,18 @@ Based on: Ester et al. 1998. *Incremental Clustering for Mining in a Data Wareho
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 
 # Build and install
-cd rust_incdbscan
 pip install maturin
 maturin develop --release
-```
-
-### Build a wheel
-
-```bash
-maturin build --release
-pip install target/wheels/rust_incdbscan-*.whl
 ```
 
 ## Usage
 
 ```python
 import numpy as np
-from rust_incdbscan import RustIncrementalDBSCAN
+from incdbscan_rs import IncrementalDBSCAN
 
 # Create the model
-db = RustIncrementalDBSCAN(eps=1.5, min_pts=5, p=2.0)
+db = IncrementalDBSCAN(eps=1.5, min_pts=5, p=2.0)
 
 # Insert data points (numpy 2D array)
 data = np.array([
@@ -68,7 +64,7 @@ deleted = db.delete(np.array([[0.0, 0.0]]))
 
 ## API
 
-### `RustIncrementalDBSCAN(eps=1.0, min_pts=5, p=2.0)`
+### `IncrementalDBSCAN(eps=1.0, min_pts=5, p=2.0)`
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
@@ -133,7 +129,7 @@ Batch 10: insert=3.13s   delete=58.22s   mem=14,009KB
 
 Deletion time grows from 0.2s to 58s. Memory grows linearly at ~1.4 MB per batch. The Python version may crash with `RecursionError: maximum recursion depth exceeded` at larger scales due to circular object references and callback-based BFS (see [Stability](#stability)).
 
-#### Rust rust_incdbscan
+#### incdbscan-rs
 
 ```
 Batch  1: insert=0.003s  delete=0.01s    mem=12KB
@@ -163,7 +159,7 @@ The Python `incdbscan` can hit `RecursionError: maximum recursion depth exceeded
 
 3. **Quadratic memory operations.** `numpy.insert()` copies the entire coordinate array on every single point insertion, causing O(n^2) total memory operations and heavy GC pressure.
 
-### Why the Rust version is immune
+### Why incdbscan-rs is immune
 
 | Concern | Python | Rust |
 |---|---|---|
@@ -179,7 +175,7 @@ The Rust version has no call stack growth proportional to data size. Every graph
 
 ```
 src/
-├── lib.rs              # PyO3 module + RustIncrementalDBSCAN pyclass
+├── lib.rs              # PyO3 module + IncrementalDBSCAN pyclass
 ├── engine.rs           # Pure-Rust IncrementalDbscan entry point
 ├── types.rs            # ObjectId (u64), ClusterLabel (i64), constants, hash function
 ├── distance.rs         # Minkowski distance family (p=2 optimized with squared distance)
@@ -210,28 +206,18 @@ cargo test
 
 Tests cover: distance calculations, hashing, spatial index operations, label management, object data structures.
 
-### Python integration tests
+### Python tests (36 tests)
 
 ```bash
-pip install numpy scikit-learn
-python -c "
-import numpy as np
-from rust_incdbscan import RustIncrementalDBSCAN
-from sklearn.cluster import DBSCAN
-
-# Quick smoke test
-db = RustIncrementalDBSCAN(eps=1.5, min_pts=3)
-data = np.array([[0.0, 0.0], [1.0, 0.0], [0.5, 0.5]])
-db.insert(data)
-labels = db.get_cluster_labels(data)
-assert all(labels == 0), f'Expected cluster 0, got {labels}'
-print('OK')
-"
+pip install incdbscan-rs[dev]
+pytest
 ```
+
+Tests cover: construction, noise, cluster creation, absorption, merge, duplicates, deletion, 2-way/3-way splits, reinsert, multi-dimensional (1D-50D), distance metrics, sklearn cross-validation, stress testing.
 
 ## Differences from Python incdbscan
 
-| Feature | Python incdbscan | Rust rust_incdbscan |
+| Feature | Python incdbscan | incdbscan-rs |
 |---|---|---|
 | Distance metrics | Any sklearn metric | Minkowski family only (p=1, 2, inf, or any p >= 1) |
 | `delete()` return value | Returns `self` | Returns `list[bool]` (whether each point was found) |

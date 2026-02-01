@@ -16,13 +16,13 @@ mod pybridge {
     use pyo3::prelude::*;
 
     #[pyclass]
-    #[pyo3(name = "RustIncrementalDBSCAN")]
-    struct RustIncrementalDBSCAN {
+    #[pyo3(name = "IncrementalDBSCAN")]
+    struct PyIncrementalDBSCAN {
         inner: IncrementalDbscan,
     }
 
     #[pymethods]
-    impl RustIncrementalDBSCAN {
+    impl PyIncrementalDBSCAN {
         #[new]
         #[pyo3(signature = (eps=1.0, min_pts=5, p=2.0))]
         fn new(eps: f64, min_pts: u32, p: f64) -> PyResult<Self> {
@@ -84,11 +84,11 @@ mod pybridge {
     }
 
     #[pymodule]
-    pub fn _rust_incdbscan(m: &Bound<'_, PyModule>) -> PyResult<()> {
-        m.add_class::<RustIncrementalDBSCAN>()?;
+    pub fn _incdbscan_rs(m: &Bound<'_, PyModule>) -> PyResult<()> {
+        m.add_class::<PyIncrementalDBSCAN>()?;
         Ok(())
     }
 }
 
 #[cfg(feature = "extension-module")]
-pub use pybridge::_rust_incdbscan;
+pub use pybridge::_incdbscan_rs;
