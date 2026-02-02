@@ -80,6 +80,12 @@ deleted = db.delete(np.array([[0.0, 0.0]]))
 | `delete(X)` | `ndarray (n, d)` | `list[bool]` | Delete points. Returns whether each point was found. |
 | `get_cluster_labels(X)` | `ndarray (n, d)` | `ndarray (n,)` | Get labels: `>= 0` = cluster, `-1` = noise, `NaN` = not found. |
 
+**Important:** All input arrays must be `float64` (`np.float64`). If your data comes from pandas or another source as `float32` or `int`, convert it first:
+
+```python
+data = data.astype(np.float64)
+```
+
 ## Performance
 
 ### Benchmarks vs Python incdbscan
