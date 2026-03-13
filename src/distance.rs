@@ -26,6 +26,42 @@ pub fn squared_euclidean_distance(a: &[f64], b: &[f64]) -> f64 {
         .sum()
 }
 
+/// Check if squared Euclidean distance is within threshold, with early termination.
+/// Returns true if ||a - b||² <= threshold.
+///
+/// Since squared differences are non-negative, the running sum can only grow.
+/// If the partial sum exceeds the threshold after processing a chunk of dimensions,
+/// the remaining dimensions can only make it larger — so we bail out early.
+/// This is exact — no approximation, bit-for-bit identical results.
+#[inline]
+pub fn squared_euclidean_within(a: &[f64], b: &[f64], threshold: f64) -> bool {
+    debug_assert_eq!(a.len(), b.len());
+    let n = a.len();
+    let mut sum = 0.0;
+
+    // Process in chunks of 4 for better auto-vectorization within each chunk
+    let chunks = n / 4;
+    for chunk in 0..chunks {
+        let base = chunk * 4;
+        let d0 = unsafe { *a.get_unchecked(base) - *b.get_unchecked(base) };
+        let d1 = unsafe { *a.get_unchecked(base + 1) - *b.get_unchecked(base + 1) };
+        let d2 = unsafe { *a.get_unchecked(base + 2) - *b.get_unchecked(base + 2) };
+        let d3 = unsafe { *a.get_unchecked(base + 3) - *b.get_unchecked(base + 3) };
+        sum += d0 * d0 + d1 * d1 + d2 * d2 + d3 * d3;
+        if sum > threshold {
+            return false;
+        }
+    }
+
+    // Handle remaining dimensions
+    for i in (chunks * 4)..n {
+        let d = unsafe { *a.get_unchecked(i) - *b.get_unchecked(i) };
+        sum += d * d;
+    }
+
+    sum <= threshold
+}
+
 #[inline]
 fn euclidean_distance(a: &[f64], b: &[f64]) -> f64 {
     squared_euclidean_distance(a, b).sqrt()

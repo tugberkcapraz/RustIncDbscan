@@ -1,5 +1,11 @@
-use crate::distance::{minkowski_distance, squared_euclidean_distance};
+use rayon::prelude::*;
+
+use crate::distance::{minkowski_distance, squared_euclidean_within};
 use crate::types::ObjectId;
+
+/// Minimum number of stored points before switching to parallel scan.
+/// Below this, rayon's thread pool overhead exceeds the parallelism benefit.
+const PARALLEL_THRESHOLD: usize = 1000;
 
 /// Brute-force spatial index with O(1) insert, O(1) delete, O(n) query.
 /// Trades query speed for incremental insert/delete efficiency.
@@ -55,20 +61,43 @@ impl SpatialIndex {
     pub fn query_radius(&self, query: &[f64]) -> Vec<ObjectId> {
         debug_assert_eq!(query.len(), self.dims);
         let n = self.ids.len();
-        let mut result = Vec::new();
 
         if self.p == 2.0 {
-            // Optimized: compare squared distances to avoid sqrt
             let eps_sq = self.eps * self.eps;
-            for i in 0..n {
-                let start = i * self.dims;
-                let end = start + self.dims;
-                let point = &self.coords[start..end];
-                if squared_euclidean_distance(query, point) <= eps_sq {
-                    result.push(self.ids[i]);
+
+            if n >= PARALLEL_THRESHOLD {
+                // Parallel scan with rayon + early termination
+                let ids = &self.ids;
+                let coords = &self.coords;
+                let dims = self.dims;
+
+                (0..n)
+                    .into_par_iter()
+                    .filter_map(|i| {
+                        let start = i * dims;
+                        let point = &coords[start..start + dims];
+                        if squared_euclidean_within(query, point, eps_sq) {
+                            Some(ids[i])
+                        } else {
+                            None
+                        }
+                    })
+                    .collect()
+            } else {
+                // Sequential scan with early termination for small datasets
+                let mut result = Vec::new();
+                for i in 0..n {
+                    let start = i * self.dims;
+                    let point = &self.coords[start..start + self.dims];
+                    if squared_euclidean_within(query, point, eps_sq) {
+                        result.push(self.ids[i]);
+                    }
                 }
+                result
             }
         } else {
+            // Non-Euclidean metrics: sequential scan (rayon possible but less common)
+            let mut result = Vec::new();
             for i in 0..n {
                 let start = i * self.dims;
                 let end = start + self.dims;
@@ -77,15 +106,15 @@ impl SpatialIndex {
                     result.push(self.ids[i]);
                 }
             }
+            result
         }
-
-        result
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::distance::squared_euclidean_distance;
 
     #[test]
     fn test_insert_and_query() {
@@ -154,5 +183,32 @@ mod tests {
         assert!(neighbors.contains(&1));
         assert!(neighbors.contains(&2));
         assert!(!neighbors.contains(&3));
+    }
+
+    /// Verify that early termination produces identical results to full computation.
+    #[test]
+    fn test_early_termination_correctness() {
+        let mut idx = SpatialIndex::new(1.5, 2.0);
+        let eps_sq = 1.5_f64 * 1.5;
+
+        // Add some high-dimensional points
+        let dims = 100;
+        let p1: Vec<f64> = (0..dims).map(|i| i as f64 * 0.01).collect();
+        let p2: Vec<f64> = (0..dims).map(|i| i as f64 * 0.01 + 0.1).collect();
+        let p3: Vec<f64> = (0..dims).map(|i| i as f64 * 0.1).collect(); // far away
+
+        idx.insert(1, &p1);
+        idx.insert(2, &p2);
+        idx.insert(3, &p3);
+
+        let neighbors = idx.query_radius(&p1);
+
+        // Verify against full distance computation
+        let d12 = squared_euclidean_distance(&p1, &p2);
+        let d13 = squared_euclidean_distance(&p1, &p3);
+
+        assert_eq!(neighbors.contains(&2), d12 <= eps_sq);
+        assert_eq!(neighbors.contains(&3), d13 <= eps_sq);
+        assert!(neighbors.contains(&1)); // self is always a neighbor
     }
 }
