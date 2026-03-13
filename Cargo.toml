@@ -1,6 +1,6 @@
 [package]
 name = "incdbscan_rs"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
 
 [lib]
@@ -16,3 +16,12 @@ pyo3 = { version = "0.23", optional = true }
 numpy = { version = "0.23", optional = true }
 petgraph = "0.7"
 xxhash-rust = { version = "0.8", features = ["xxh64"] }
+rayon = "1.10"
+
+[dev-dependencies]
+rand = "0.8"
+rand_distr = "0.4"
+
+[[bench]]
+name = "batch_scaling"
+harness = false

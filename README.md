@@ -121,6 +121,25 @@ Deletion involves BFS-based split detection, which has similar algorithmic compl
 | 500 points | 0.592s | 0.017s | **34x** |
 | 1000 points | 2.566s | 0.251s | **10x** |
 
+### High-dimensional scaling (v0.2.0)
+
+Simulates a real embedding workload: 996-dimensional L2-normalized vectors (resembling OpenAI/Gemini text embeddings), `eps=1.2`, `min_pts=5`, inserted in batches of 1,500 points. Measured on a single machine.
+
+| Batch | Total Points | v0.1.0 (s) | v0.2.0 (s) | Speedup |
+|---|---|---|---|---|
+| 1 | 1,500 | 1.617 | 0.547 | **3.0x** |
+| 3 | 4,500 | 8.053 | 1.397 | **5.8x** |
+| 5 | 7,500 | 14.466 | 2.273 | **6.4x** |
+| 7 | 10,500 | 20.898 | 3.039 | **6.9x** |
+| 10 | 15,000 | 29.606 | 4.347 | **6.8x** |
+| **Total** | | **160.2s** | **24.9s** | **6.4x** |
+
+v0.2.0 introduces two optimizations that dramatically improve performance for high-dimensional data:
+
+1. **Early termination in distance computation.** For Euclidean distance (p=2.0), squared differences are accumulated in chunks of 4 dimensions. If the partial sum exceeds eps² at any checkpoint, the remaining dimensions are skipped. This is exact -- no approximation, bit-for-bit identical results to a full computation. For high-dimensional embeddings with a tight eps, most non-neighbor pairs are rejected after computing only 5-15% of dimensions.
+
+2. **Parallel spatial index scan.** When the dataset exceeds 1,000 points, the brute-force neighbor scan is parallelized across CPU cores using [rayon](https://github.com/rayon-rs/rayon). Below 1,000 points, sequential scan avoids thread pool overhead.
+
 ### Stress test: 10 batches of 500 points
 
 Simulates a real workload: insert 500 points per batch, delete 100 per batch, 10 batches total (5000 inserts, 1000 deletes).
@@ -184,9 +203,9 @@ src/
 ├── lib.rs              # PyO3 module + IncrementalDBSCAN pyclass
 ├── engine.rs           # Pure-Rust IncrementalDbscan entry point
 ├── types.rs            # ObjectId (u64), ClusterLabel (i64), constants, hash function
-├── distance.rs         # Minkowski distance family (p=2 optimized with squared distance)
+├── distance.rs         # Minkowski distance family (p=2 optimized with early termination)
 ├── object.rs           # ObjectData struct (id, count, neighbor_count, core status)
-├── spatial_index.rs    # Brute-force spatial index (Vec-based, O(1) insert, O(n) query)
+├── spatial_index.rs    # Brute-force spatial index (Vec-based, O(1) insert, parallel O(n) query)
 ├── labels.rs           # LabelHandler (bidirectional HashMap mapping)
 ├── objects.rs          # Central manager (petgraph StableGraph + spatial index + labels)
 ├── inserter.rs         # Insertion algorithm (creation / absorption / merge)
@@ -199,18 +218,18 @@ src/
 - **`petgraph::StableGraph`** instead of a plain graph. Stable node indices survive node removal, which is critical since we store `NodeIndex` values in hash maps.
 - **No neighbor set on objects.** The Python version stores `obj.neighbors` as a set. Rust queries `graph.neighbors(node_idx)` directly, avoiding duplicated state and circular references.
 - **`DeletedObjectInfo` pattern.** Python accesses a deleted object's neighbors after deletion (the object persists in memory via GC). Rust snapshots neighbor data into a struct before removal.
-- **Brute-force spatial index.** O(1) insert + O(n) query per insert beats Python's O(n log n) tree rebuild + O(log n + k) query, because the rebuild dominates. Upgradeable to grid-based spatial hashing for very large datasets.
+- **Brute-force spatial index with early termination.** O(1) insert + O(n) query per insert beats Python's O(n log n) tree rebuild + O(log n + k) query, because the rebuild dominates. For Euclidean distance, the query uses early termination to skip dimensions once the partial squared distance exceeds eps², and parallelizes across CPU cores via rayon for datasets above 1,000 points.
 - **Feature-gated PyO3.** PyO3 bindings are behind the `extension-module` Cargo feature, so `cargo test` runs pure Rust tests without requiring a Python interpreter.
 
 ## Running tests
 
-### Rust unit tests (24 tests)
+### Rust unit tests (25 tests)
 
 ```bash
 cargo test
 ```
 
-Tests cover: distance calculations, hashing, spatial index operations, label management, object data structures.
+Tests cover: distance calculations, early termination correctness, hashing, spatial index operations, label management, object data structures.
 
 ### Python tests (36 tests)
 
@@ -220,6 +239,14 @@ pytest
 ```
 
 Tests cover: construction, noise, cluster creation, absorption, merge, duplicates, deletion, 2-way/3-way splits, reinsert, multi-dimensional (1D-50D), distance metrics, sklearn cross-validation, stress testing.
+
+### Benchmarks
+
+```bash
+cargo bench --bench batch_scaling
+```
+
+Runs the high-dimensional batch insertion benchmark (10 batches of 1,500 points, 996 dimensions).
 
 ## Differences from Python incdbscan
 
