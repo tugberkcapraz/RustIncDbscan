@@ -64,7 +64,7 @@ jobs:
         uses: PyO3/maturin-action@v1
         with:
           target: ${{ matrix.os == 'macos' && format('{0}-apple-darwin', matrix.target) || matrix.target }}
-          args: --release --out dist
+          args: --release --out dist -i 3.12
           manylinux: auto
           before-script-linux: |
             if ! command -v python3 > /dev/null 2>&1; then
